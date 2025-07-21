@@ -59,9 +59,9 @@ RUN python -m pip install --upgrade pip \
 RUN python -m pip install \
     anthropic==0.58.2 \
     google_api_python_client==2.170.0 \
-    google-generativeai \
     langchain_anthropic==0.3.17 \
     "langchain-core>=0.3.62,<1.0.0" \
+    langchain_google_genai==2.1.8 \
     langchain_openai==0.3.28 \
     langgraph==0.5.3 \
     openai==1.97.0 \

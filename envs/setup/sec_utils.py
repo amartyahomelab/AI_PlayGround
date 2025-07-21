@@ -1,4 +1,4 @@
-# envs/setup/sec_utils.py
+# src/diagram_to_iac/tools/sec_utils.py
 
 """
 Load and decode secrets from environment variables or secrets.yaml file.
@@ -7,13 +7,13 @@ For GitHub Actions (.github/actions/r2d/Dockerfile):
 - Secrets are expected to be provided as base64-encoded environment variables
 - Will halt execution if required secrets are missing or empty
 
-For dev containers (envs/dev/Dockerfile):  
+For dev containers (docker/dev/Dockerfile):  
 - First tries to load from environment variables
 - Falls back to /run/secrets.yaml file if env vars not present
 - All values (env and file) are expected to be base64 encoded
 
 Mount secrets.yaml into dev container with:
-  docker run … -v "$PWD/envs/config/secrets.yaml":/run/secrets.yaml:ro …
+  docker run … -v "$PWD/config/secrets.yaml":/run/secrets.yaml:ro …
 """
 
 import os
@@ -242,112 +242,6 @@ def _validate_and_set_secrets(secrets: Dict[str, str], source: str = "environmen
         
         print(error_msg)
         sys.exit(1)
-
-
-def load_secrets_to_dict() -> Dict[str, str]:
-    """
-    Load secrets and return them as a dictionary without setting environment variables.
-    Used for exporting to shell environment.
-    """
-    print("🔐 Loading and validating secrets...")
-    
-    # First, check environment variables
-    env_secrets = _get_env_secrets()
-    env_secrets_present = any(v is not None for v in env_secrets.values())
-    
-    if env_secrets_present:
-        # Environment variables are present, validate them
-        print("🔍 Found secrets in environment variables")
-        valid_env_secrets = {k: v for k, v in env_secrets.items() if v is not None}
-        return _process_secrets_to_dict(valid_env_secrets, "environment")
-    
-    # No environment secrets found
-    if _is_dev_environment():
-        print("🔍 No environment secrets found, checking secrets file...")
-        file_secrets = _load_secrets_from_file()
-        if file_secrets:
-            print(f"📁 Loading secrets from {_YAML_PATH}")
-            return _process_secrets_to_dict(file_secrets, "file")
-        else:
-            print(f"❌ No secrets found in {_YAML_PATH}")
-    
-    # No secrets available anywhere
-    error_msg = "🔐 No secrets available!\n"
-    if _is_dev_environment():
-        error_msg += f"💡 For dev environment, provide secrets via:\n"
-        error_msg += f"  - Environment variables: {', '.join(SECRET_ENV_MAPPING.values())}\n"
-        error_msg += f"  - Secrets file: {_YAML_PATH}"
-    else:
-        error_msg += f"💡 For production, provide secrets via environment variables:\n"
-        error_msg += f"    {', '.join(SECRET_ENV_MAPPING.values())}"
-    
-    print(error_msg)
-    return {}
-
-
-def _process_secrets_to_dict(secrets: Dict[str, str], source: str = "environment") -> Dict[str, str]:
-    """Process secrets and return them as environment variable dictionary."""
-    result_dict = {}
-    missing_required = []
-    empty_secrets = []
-    loaded_secrets = []
-    ai_secrets_available = 0
-    
-    for secret_key in EXPECTED_SECRETS:
-        secret_value = secrets.get(secret_key)
-        env_name = SECRET_ENV_MAPPING.get(secret_key, secret_key)
-        
-        if secret_value is None:
-            if secret_key in REQUIRED_SECRETS:
-                missing_required.append(secret_key)
-            continue
-            
-        if not secret_value.strip():
-            empty_secrets.append(secret_key)
-            continue
-            
-        # Decode value (decode only if from file, not if already from env)
-        try:
-            if source == "file":
-                # File values need to be decoded
-                decoded_value = _decode_b64(secret_value)
-            else:
-                # Environment values are already decoded
-                decoded_value = secret_value
-                
-            if decoded_value:
-                result_dict[env_name] = decoded_value
-                loaded_secrets.append(env_name)
-                
-                # Special handling for TF_API_KEY - also set TF_TOKEN_app_terraform_io
-                if secret_key == "TF_API_KEY":
-                    result_dict["TF_TOKEN_app_terraform_io"] = decoded_value
-                    loaded_secrets.append("TF_TOKEN_app_terraform_io")
-                    print(f"✅ TF_TOKEN_app_terraform_io: loaded from {source} (duplicate of TFE_TOKEN)")
-                
-                if secret_key in AI_API_SECRETS:
-                    ai_secrets_available += 1
-                print(f"✅ {env_name}: loaded from {source}")
-            else:
-                empty_secrets.append(secret_key)
-        except Exception as e:
-            print(f"❌ Error processing {secret_key}: {e}")
-            empty_secrets.append(secret_key)
-    
-    # Report status
-    if missing_required:
-        print(f"❌ Missing required secrets: {', '.join(missing_required)}")
-        return {}
-    
-    if empty_secrets:
-        print(f"⚠️ Empty secrets (will be ignored): {', '.join(empty_secrets)}")
-    
-    if loaded_secrets:
-        print(f"✅ Successfully loaded {len(loaded_secrets)} secrets from {source}")
-        if ai_secrets_available > 0:
-            print(f"🤖 AI capabilities enabled ({ai_secrets_available} API key(s) configured)")
-    
-    return result_dict
 
 
 def load_secrets() -> None:

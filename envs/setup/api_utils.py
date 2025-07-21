@@ -10,15 +10,13 @@ except ImportError:  # pragma: no cover - optional dependency
 import googleapiclient.discovery
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-# Simple configuration fallback for containerized environment
-def get_config_value(path: str, default=None):
-    """Simple config fallback that returns default values for containerized environment."""
-    config_defaults = {
-        "network.api_timeout": 10,
-        "network.github_timeout": 15,
-        "network.terraform_timeout": 30
-    }
-    return config_defaults.get(path, default)
+# Import centralized configuration
+try:
+    from diagram_to_iac.core.config_loader import get_config_value
+except ImportError:
+    # Fallback if config system not available
+    def get_config_value(path: str, default=None):
+        return default
 
 def test_openai_api():
     try:
