@@ -15,7 +15,7 @@ if [[ $# -ne 1 || ! $1 =~ ^(en|de)$ ]]; then
 fi
 
 MODE=$1
-SRC="config/secrets.yaml"
+SRC="envs/config/secrets.yaml"
 TMP="$(mktemp)"
 
 # --- helpers -------------------------------------------------------------
