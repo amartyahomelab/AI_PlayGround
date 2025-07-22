@@ -38,6 +38,11 @@ RUN apt-get update && apt-get install -y \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js (includes npm and npx)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Terraform
 RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
@@ -72,6 +77,9 @@ RUN python -m pip install \
     typing_extensions==4.14.1 \
     "GitPython>=3.1,<4.0"
 
+# Install google-generativeai separately to avoid dependency conflicts
+RUN python -m pip install google-generativeai
+
 # Install development and testing dependencies
 RUN python -m pip install \
     pytest>=7.0.0 \
@@ -89,6 +97,22 @@ RUN useradd -m -s /bin/bash user \
  && chmod 600 /home/user/.bash_history \
  && echo 'PROMPT_COMMAND="history -a; history -w; $PROMPT_COMMAND"' \
        >> /home/user/.bashrc
+
+# Configure npm for the user account - set up npm to use user directory for global installs
+RUN mkdir -p /home/user/.npm-global \
+ && chown -R user:user /home/user/.npm-global \
+ && echo 'export PATH=/home/user/.npm-global/bin:$PATH' >> /home/user/.bashrc \
+ && echo 'export NPM_CONFIG_PREFIX=/home/user/.npm-global' >> /home/user/.bashrc \
+ && echo 'export NPM_CONFIG_CACHE=/home/user/.npm-cache' >> /home/user/.bashrc
+
+# Switch to user and configure npm properly
+USER user
+RUN npm config set prefix '/home/user/.npm-global' \
+ && npm config set cache '/home/user/.npm-cache' \
+ && mkdir -p /home/user/.npm-cache
+
+# Switch back to root for final setup
+USER root
 
 # ─── 4) Entrypoint hooked during docker run by build_local.sh and build local calls updat_deps.py
 # Which check requirments.txt and update it if needed and install all the dependencies

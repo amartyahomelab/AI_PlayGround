@@ -10,8 +10,9 @@ except ImportError:  # pragma: no cover - optional dependency
 import googleapiclient.discovery
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-# Import centralized configuration
+# Import centralized configuration - fallback for current environment
 try:
+    # Try to import from diagram_to_iac if available
     from diagram_to_iac.core.config_loader import get_config_value
 except ImportError:
     # Fallback if config system not available

@@ -7,9 +7,8 @@ pip install -e .
 git clone https://github.com/langchain-ai/langgraph.git
 cd langgraph
 pip install -e .
-# Build CLI
-pip install langgraph-cli
-npx @langchain/langgraph-cli
+# Build CLI - Install the CLI directly without updating npm
+npm install -g @langchain/langgraph-cli
 
 # Clone LangGraph Studio (Desktop/Web IDE)
 git clone https://github.com/langchain-ai/langgraph-studio.git
@@ -20,4 +19,6 @@ npm install  # or yarn
 # (Optional) Clone Agent Chat UI
 git clone https://github.com/langchain-ai/agent-chat-ui.git
 cd agent-chat-ui
+# Install pnpm if needed and use it
+npm install -g pnpm
 pnpm install

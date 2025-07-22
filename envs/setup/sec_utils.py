@@ -296,3 +296,47 @@ def load_secrets() -> None:
 
 # Backward compatibility alias
 load_yaml_secrets = load_secrets
+
+
+def export_secrets_to_bash(output_file: str) -> None:
+    """
+    Export loaded secrets to a bash-sourceable file.
+    This allows environment variables to persist in the parent shell.
+    
+    Args:
+        output_file: Path to the file where bash export statements will be written
+    """
+    secret_keys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GOOGLE_API_KEY', 'GROK_API_KEY', 
+                   'GITHUB_TOKEN', 'DOCKERHUB_API_KEY', 'DOCKERHUB_USERNAME', 'TFE_TOKEN', 
+                   'TF_TOKEN_app_terraform_io', 'PYPI_API_KEY']
+    exported_count = 0
+    
+    with open(output_file, 'w') as f:
+        for key in secret_keys:
+            value = os.environ.get(key)
+            if value:
+                # Escape any quotes in the value
+                escaped_value = value.replace('"', '\\"')
+                f.write(f'export {key}="{escaped_value}"\n')
+                exported_count += 1
+    
+    print(f'✅ {exported_count} environment variables exported to {output_file}')
+
+
+if __name__ == '__main__':
+    """Command-line interface for sec_utils."""
+    import sys
+    
+    if len(sys.argv) == 1:
+        # No arguments - just load secrets
+        load_secrets()
+    elif len(sys.argv) == 2:
+        # One argument - load secrets and export to file
+        output_file = sys.argv[1]
+        load_secrets()
+        export_secrets_to_bash(output_file)
+    else:
+        print("Usage:")
+        print("  python3 sec_utils.py                    # Load secrets only")
+        print("  python3 sec_utils.py <output_file>      # Load secrets and export to bash file")
+        sys.exit(1)
