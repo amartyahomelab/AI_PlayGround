@@ -1,0 +1,16 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "LangGraph PostgreSQL",
+            "Group": "LangGraph Stack",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "postgres",
+            "Username": "postgres",
+            "Password": "postgres",
+            "SSLMode": "prefer",
+            "Favorite": true,
+            "Comment": "LangGraph Stack PostgreSQL Database - Pre-configured connection"
+        }
+    }
+}

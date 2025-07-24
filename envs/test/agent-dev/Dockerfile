@@ -1,11 +1,9 @@
-# docker/dev/Dockerfile
-# 🚨 SECURITY NOTE: This is the DEVELOPMENT container only
-# - Uses fake/sample secrets from config/dev_secrets.yaml
-# - NOT included in GitHub Actions workflows or security reports
-# - Safe for local development and testing
-# - Production deployments use .github/actions/r2d/Dockerfile instead
+# Agent Development Container (based on envs/dev/Dockerfile)
+# 🎯 PURPOSE: Development environment for LangGraph agents
+# - Compatible with existing envs/dev/Dockerfile patterns
+# - Integrates with secret management system
+# - Can connect to langgraph-network for service integration
 
-# ─── 1) Base image & tools ─────────────────────────────────────────────────────
 FROM ubuntu:22.04
 
 ENV HISTFILE=/home/user/.bash_history \
@@ -15,6 +13,7 @@ ENV HISTFILE=/home/user/.bash_history \
     DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
 
+# ─── 1) Base system & tools ─────────────────────────────────────────
 RUN apt-get update && apt-get install -y \
       bash \
       software-properties-common \
@@ -38,6 +37,7 @@ RUN apt-get update && apt-get install -y \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
     && rm -rf /var/lib/apt/lists/*
 
+# ─── 2) Node.js & package managers ──────────────────────────────────
 # Install Node.js (includes npm and npx)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
@@ -46,6 +46,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Install pnpm globally
 RUN npm install -g pnpm
 
+# ─── 3) Development tools ────────────────────────────────────────────
 # Install Terraform
 RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
@@ -54,15 +55,18 @@ RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/shar
 # Install tfsec for security scanning
 RUN curl -sSfL https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 -o /usr/local/bin/tfsec \
     && chmod +x /usr/local/bin/tfsec
-# install git cli
+
+# Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt update \
     && apt install -y gh
-# ─── 2) Install packaging helpers as root (so pipreqs ends up in /usr/local/bin) ─
+# ─── 4) Python packaging tools ──────────────────────────────────────
+# Install packaging helpers as root (so pipreqs ends up in /usr/local/bin)
 RUN python -m pip install --upgrade pip \
  && python -m pip install pipreqs tomlkit build setuptools wheel
 
+# ─── 5) LangChain & LangGraph ecosystem ─────────────────────────────
 # Install main application dependencies
 RUN python -m pip install \
     anthropic==0.58.2 \
@@ -84,6 +88,7 @@ RUN python -m pip install \
 # Install google-generativeai separately to avoid dependency conflicts
 RUN python -m pip install google-generativeai
 
+# ─── 6) Development & testing dependencies ──────────────────────────
 # Install development and testing dependencies
 RUN python -m pip install \
     pytest>=7.0.0 \
@@ -94,7 +99,8 @@ RUN python -m pip install \
     bandit>=1.7.0 \
     ipython>=8.0.0
 
-# ─── 3) Create non‑root user & persistent bash history ─────────────────────────
+# ─── 7) User setup & npm configuration ──────────────────────────────
+# Create non‑root user & persistent bash history
 RUN useradd -m -s /bin/bash user \
  && touch /home/user/.bash_history \
  && chown user:user /home/user/.bash_history \
@@ -118,13 +124,18 @@ RUN npm config set prefix '/home/user/.npm-global' \
 # Switch back to root for final setup
 USER root
 
-# ─── 4) Entrypoint hooked during docker run by build_local.sh and build local calls updat_deps.py
-# Which check requirments.txt and update it if needed and install all the dependencies
-#COPY docker/dev/entrypoint.sh /entrypoint.sh
-#RUN chmod +x /entrypoint.sh
+# ─── 8) Git & workspace setup ────────────────────────────────────────
 RUN git config --global --add safe.directory /home/user/app
 RUN mkdir -p /workspace && \
     chown -R user:user /workspace && \
     chmod -R 775 /workspace
+
+# ─── 9) Copy entrypoint script ───────────────────────────────────────
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ─── 10) Final setup ──────────────────────────────────────────────────
 USER user
 WORKDIR /home/user/app
+
+ENTRYPOINT ["/entrypoint.sh"]

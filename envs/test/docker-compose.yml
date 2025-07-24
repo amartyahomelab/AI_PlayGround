@@ -1,0 +1,198 @@
+services:
+  # PostgreSQL - Database for checkpointing and LangSmith
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: langgraph-postgres
+    command: ["postgres"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      LANGSMITH_DB: langsmith
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ../../envs/config/secrets.yaml:/run/secrets.yaml:ro
+      - ../../envs/setup/sec_utils.py:/opt/sec_utils.py:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant - Vector database
+  qdrant:
+    build:
+      context: ./qdrant
+      dockerfile: Dockerfile
+    container_name: langgraph-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ../../envs/config/secrets.yaml:/run/secrets.yaml:ro
+      - ../../envs/setup/sec_utils.py:/opt/sec_utils.py:ro
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/cluster"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - For LangSmith caching
+  redis:
+    image: redis:7-alpine
+    container_name: langgraph-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL GUI Interface
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: langgraph-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # LangSmith - Self-hosted tracing and evaluation
+  langsmith:
+    build:
+      context: ./langsmith
+      dockerfile: Dockerfile
+    container_name: langgraph-langsmith
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/langsmith
+      LANGSMITH_LICENSE_KEY: ${LANGSMITH_LICENSE_KEY:-}
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ../../envs/config/secrets.yaml:/run/secrets.yaml:ro
+      - ../../envs/setup/sec_utils.py:/opt/sec_utils.py:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # LangGraph Server - Main API + Studio UI (Official Combined Service)
+  langgraph-server:
+    build:
+      context: ./langgraph-server
+      dockerfile: Dockerfile
+    container_name: langgraph-server
+    environment:
+      # Database configuration
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      
+      # Vector store configuration
+      QDRANT_URL: http://qdrant:6333
+      
+      # Tracing configuration
+      LANGSMITH_API_URL: http://langsmith:8000
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      
+      # Server configuration
+      HOST: 0.0.0.0
+      PORT: 2024
+    volumes:
+      - ./langgraph-server/graphs:/app/graphs
+      - ../../envs/config/secrets.yaml:/run/secrets.yaml:ro
+      - ../../envs/setup/sec_utils.py:/opt/sec_utils.py:ro
+    ports:
+      - "2024:2024"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2024/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # RedisInsight - Redis GUI Interface
+  redisinsight:
+    image: redislabs/redisinsight:1.14.0
+    container_name: langgraph-redisinsight
+    volumes:
+      - redisinsight_data:/db
+    ports:
+      - "8001:8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001"] 
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+volumes:
+  postgres_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  redis_data:
+    driver: local
+  redisinsight_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  langgraph-network:
+    driver: bridge
+    name: langgraph-network
