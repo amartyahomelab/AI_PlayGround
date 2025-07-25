@@ -7,48 +7,34 @@ set -euo pipefail
 # - Set up multiple databases (postgres, langsmith)
 # - Call original PostgreSQL entrypoint
 
-echo "�️ PostgreSQL Container Starting..."
+echo "🐘 PostgreSQL Container Starting..."
 
-# 1) Load secrets if available
-if [ -f "/run/secrets.yaml" ] && [ -f "/opt/sec_utils.py" ]; then
-    echo "🔐 Loading database secrets..."
+# Decode base64 environment variables first
+echo "🔓 Decoding base64 environment variables..."
+if [ -f "/opt/decode_env.sh" ]; then
+    # Use the shell script to decode and generate export statements
+    /opt/decode_env.sh export
     
-    # Create temporary file for environment variables
-    TEMP_ENV_FILE=$(mktemp)
-    
-    # Load secrets using Python script
-    cd /opt
-    python3 sec_utils.py "$TEMP_ENV_FILE" 2>/dev/null || echo "⚠️ Secret loading failed, using defaults"
-    
-    # Source environment variables if successful
-    if [ -f "$TEMP_ENV_FILE" ] && [ -s "$TEMP_ENV_FILE" ]; then
-        source "$TEMP_ENV_FILE"
-        rm "$TEMP_ENV_FILE"
-        echo "✅ Database secrets loaded"
-        
-        # Override default password if loaded from secrets
-        if [ -n "${POSTGRES_PASSWORD:-}" ]; then
-            export POSTGRES_PASSWORD
-            echo "🔐 Using password from secret management"
-        fi
+    # Source the generated environment script to make variables available to shell
+    if [ -f "/tmp/decoded_env.sh" ]; then
+        source /tmp/decoded_env.sh
+        echo "✅ Base64 environment variables decoded and exported"
     else
-        echo "⚠️ Using default database password"
-        [ -f "$TEMP_ENV_FILE" ] && rm -f "$TEMP_ENV_FILE"
+        echo "❌ Failed to generate decoded environment variables"
+        exit 1
     fi
 else
-    echo "⚠️ Secret management not available, using default credentials"
+    echo "⚠️ Warning: decode_env.sh not found, skipping base64 decoding"
 fi
 
-# 2) Set up default environment variables if not provided
-export POSTGRES_USER="${POSTGRES_USER:-postgres}"
-export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
-export POSTGRES_DB="${POSTGRES_DB:-postgres}"
+# Skip API validation for postgres - not needed for database service
+echo "ℹ️ Skipping API validation for PostgreSQL service"
 
 echo "📊 Database configuration:"
 echo "   User: $POSTGRES_USER"
 echo "   Default DB: $POSTGRES_DB"
 echo "   Extensions: pgvector, pg_stat_statements"
 
-# 3) Call the original PostgreSQL entrypoint
+# Call the original PostgreSQL entrypoint
 echo "🚀 Starting PostgreSQL server..."
 exec docker-entrypoint.sh "$@"

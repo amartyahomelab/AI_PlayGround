@@ -47,13 +47,13 @@ EXPECTED_SECRETS = [
     "GOOGLE_API_KEY",
     "ANTHROPIC_API_KEY", 
     "GROK_API_KEY",
-    "REPO_API_KEY",
+    "GITHUB_TOKEN",
     "LANGSMITH_API_KEY"
 ]
 
 # Required secrets that must be present (others are optional)
 REQUIRED_SECRETS = [
-    "REPO_API_KEY"  # GITHUB_TOKEN is required for repo operations
+    "GITHUB_TOKEN"  # GITHUB_TOKEN is required for repo operations
 ]
 
 # Optional AI API secrets (at least one should be present for AI functionality)
@@ -66,15 +66,16 @@ AI_API_SECRETS = [
 
 # Map internal secret names to environment variable names
 SECRET_ENV_MAPPING = {
-    "REPO_API_KEY": "GITHUB_TOKEN",
-    "TF_API_KEY": "TFE_TOKEN",
+    "GITHUB_TOKEN": "GITHUB_TOKEN",
+    "TF_API_KEY": "TF_API_KEY",
     "DOCKERHUB_API_KEY": "DOCKERHUB_API_KEY",
     "DOCKERHUB_USERNAME": "DOCKERHUB_USERNAME",
     "PYPI_API_KEY": "PYPI_API_KEY", 
     "OPENAI_API_KEY": "OPENAI_API_KEY",
     "GOOGLE_API_KEY": "GOOGLE_API_KEY",
     "ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY",
-    "GROK_API_KEY": "GROK_API_KEY"
+    "GROK_API_KEY": "GROK_API_KEY",
+    "LANGSMITH_API_KEY": "LANGSMITH_API_KEY"
 }
 
 # Alternative environment variable names to check for TFE_TOKEN
@@ -129,7 +130,7 @@ def _get_env_secrets() -> Dict[str, Optional[str]]:
         if raw_value:
             # Check if value is already decoded, use as-is; otherwise decode it
             if (secret_key == "TF_API_KEY" and ".atlasv1." in raw_value) or \
-               (secret_key == "REPO_API_KEY" and raw_value.startswith("ghp_")) or \
+               (secret_key == "GITHUB_TOKEN" and raw_value.startswith("ghp_")) or \
                (secret_key == "OPENAI_API_KEY" and raw_value.startswith("sk-")) or \
                (secret_key == "ANTHROPIC_API_KEY" and raw_value.startswith("sk-ant-")) or \
                (secret_key == "GOOGLE_API_KEY" and not "=" in raw_value and len(raw_value) < 100) or \

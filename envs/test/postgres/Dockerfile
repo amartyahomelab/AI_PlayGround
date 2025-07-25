@@ -13,8 +13,8 @@ RUN apk add --no-cache python3 py3-pip py3-yaml curl
 COPY init/*.sql /docker-entrypoint-initdb.d/
 
 # Copy custom entrypoint with secret management
-COPY entrypoint.sh /usr/local/bin/custom-entrypoint.sh
-RUN chmod +x /usr/local/bin/custom-entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Use custom entrypoint that integrates secret management and calls original
-ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

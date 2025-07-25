@@ -10,13 +10,12 @@ except ImportError:  # pragma: no cover - optional dependency
 import googleapiclient.discovery
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-# Import centralized configuration - fallback for current environment
-try:
-    # Try to import from diagram_to_iac if available
-    from diagram_to_iac.core.config_loader import get_config_value
-except ImportError:
-    # Fallback if config system not available
-    def get_config_value(path: str, default=None):
+# Configuration from environment variables with defaults
+def get_timeout(env_var_name: str, default: int) -> int:
+    """Get timeout value from environment variable or use default."""
+    try:
+        return int(os.environ.get(env_var_name, default))
+    except (ValueError, TypeError):
         return default
 
 def test_openai_api():
@@ -26,8 +25,8 @@ def test_openai_api():
             return False
         client = OpenAI()
         
-        # Get timeout from configuration
-        api_timeout = get_config_value("network.api_timeout", 10)
+        # Get timeout from environment variable
+        api_timeout = get_timeout("API_TIMEOUT", 10)
         
         # Run the API call with configured timeout
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -59,8 +58,8 @@ def test_gemini_api():
         genai.configure(api_key=google_api_key)
         model = genai.GenerativeModel('gemini-2.0-flash')  # Corrected model name
         
-        # Get timeout from configuration
-        api_timeout = get_config_value("network.api_timeout", 10)
+        # Get timeout from environment variable
+        api_timeout = get_timeout("API_TIMEOUT", 10)
         
         # Run the API call with configured timeout
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -80,10 +79,12 @@ def test_anthropic_api():
         if not os.environ.get("ANTHROPIC_API_KEY"):
             print("❌ Anthropic API error: ANTHROPIC_API_KEY environment variable not set.")
             return False
+        
+        from anthropic import Anthropic
         client = Anthropic()
         
-        # Get timeout from configuration
-        api_timeout = get_config_value("network.api_timeout", 10)
+        # Get timeout from environment variable
+        api_timeout = get_timeout("API_TIMEOUT", 10)
         
         # Run the API call with configured timeout
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -117,7 +118,7 @@ def test_github_api():
         }
         
         # Get timeout from configuration
-        github_timeout = get_config_value("network.github_timeout", 15)
+        github_timeout = get_timeout("GITHUB_TIMEOUT", 15)
         
         # Run the API call with configured timeout
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -157,7 +158,7 @@ def test_Terraform_API():
         }
         
         # Get timeout from configuration
-        terraform_timeout = get_config_value("network.terraform_timeout", 30)
+        terraform_timeout = get_timeout("TERRAFORM_TIMEOUT", 30)
         
         # Test account details endpoint (more reliable than organizations)
         # Run the API call with configured timeout
