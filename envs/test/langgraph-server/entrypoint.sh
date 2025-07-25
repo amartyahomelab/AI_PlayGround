@@ -13,13 +13,43 @@ if [ -f "/run/secrets.yaml" ]; then
         # Add Python path and run load_secrets function
         export PYTHONPATH="/opt:$PYTHONPATH"
         
-        # Test if the function works first
-        if python3 -c "
+        # Use a temporary file approach to avoid eval escaping issues
+        python3 > /tmp/export_env.sh 2>/dev/null << 'PYTHON_SCRIPT'
 import sys
+import os
 sys.path.insert(0, '/opt')
-from sec_utils import load_secrets
-load_secrets()
-" 2>/dev/null; then
+try:
+    from sec_utils import load_secrets
+    # Temporarily silence prints from load_secrets
+    import io
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    
+    load_secrets()
+    
+    # Restore stdout
+    sys.stdout = old_stdout
+    
+    # Export the key environment variables we need
+    print("#!/bin/bash")
+    for key in ['LANGSMITH_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY', 'ANTHROPIC_API_KEY', 'GROK_API_KEY', 'GITHUB_TOKEN']:
+        value = os.environ.get(key, '')
+        if value:
+            # Properly escape the value for bash
+            escaped_value = value.replace("'", "'\"'\"'")
+            print(f"export {key}='{escaped_value}'")
+except Exception as e:
+    print(f"# Error loading secrets: {e}")
+    pass
+PYTHON_SCRIPT
+        
+        # Source the generated environment script
+        if [ -f "/tmp/export_env.sh" ]; then
+            chmod +x /tmp/export_env.sh
+            source /tmp/export_env.sh
+        fi
+        
+        if [ ! -z "$LANGSMITH_API_KEY" ]; then
             echo "✅ Successfully loaded secrets using sec_utils.py"
         else
             echo "⚠️ Warning: sec_utils.py failed, falling back to manual parsing"
@@ -107,7 +137,7 @@ echo "   Host: $HOST"
 echo "   Port: $PORT"
 echo "   Database URI: $DATABASE_URI"
 echo "   Vector Store: $QDRANT_URL"
-echo "   API Keys: ${OPENAI_API_KEY:+***configured***}"
+echo "   API Keys: ${OPENAI_API_KEY:+OPENAI***} ${LANGSMITH_API_KEY:+LANGSMITH***}"
 
 # Start LangGraph development server
 echo "🚀 Starting LangGraph development server with Studio UI..."

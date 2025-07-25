@@ -136,7 +136,7 @@ services:
       
       # Tracing configuration
       LANGSMITH_API_URL: http://langsmith:8000
-      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      # LANGSMITH_API_KEY loaded by entrypoint from secrets.yaml
       
       # Server configuration
       HOST: 0.0.0.0

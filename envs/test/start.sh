@@ -119,13 +119,17 @@ start_services() {
     print_header "🚀 Starting LangGraph Stack..."
     echo ""
     
-    # Check if .env file exists
-    if [ ! -f ".env" ]; then
+    # Get script directory and check if .env file exists
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
         print_error ".env file not found!"
-        print_info "Please copy secrets_example.yaml to secrets.yaml and run the setup script"
+        print_info "Please ensure .env file exists in $SCRIPT_DIR/"
         exit 1
     fi
 
+    # Change to script directory to ensure docker compose finds .env and docker-compose.yml
+    cd "$SCRIPT_DIR"
+    
     # Start the stack
     print_info "Starting all services..."
     docker compose -p langgraph-stack up -d

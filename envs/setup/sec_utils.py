@@ -47,7 +47,8 @@ EXPECTED_SECRETS = [
     "GOOGLE_API_KEY",
     "ANTHROPIC_API_KEY", 
     "GROK_API_KEY",
-    "REPO_API_KEY"
+    "REPO_API_KEY",
+    "LANGSMITH_API_KEY"
 ]
 
 # Required secrets that must be present (others are optional)
