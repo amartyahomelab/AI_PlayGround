@@ -1,27 +1,4 @@
 services:
-  # PostgreSQL - Database for checkpointing and LangSmith
-  postgres:
-    build:
-      context: ./postgres
-      dockerfile: Dockerfile
-    container_name: langgraph-postgres
-    env_file:
-      - .env
-    command: ["postgres"]
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d
-      - ../../envs/setup/decode_env.sh:/opt/decode_env.sh:ro
-      - ../../envs/setup/api_utils.py:/opt/api_utils.py:ro
-    ports:
-      - "5432:5432"
-    networks:
-      - langgraph-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Qdrant - Vector database
   qdrant:
@@ -46,22 +23,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis - For LangSmith caching
-  redis:
-    image: redis:7-alpine
-    container_name: langgraph-redis
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    networks:
-      - langgraph-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # pgAdmin - PostgreSQL GUI Interface
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -73,9 +34,6 @@ services:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
     ports:
       - "8080:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - langgraph-network
     healthcheck:
@@ -105,8 +63,6 @@ services:
     ports:
       - "2024:2024"
     depends_on:
-      postgres:
-        condition: service_healthy
       qdrant:
         condition: service_healthy
     networks:
@@ -125,9 +81,6 @@ services:
       - redisinsight_data:/db
     ports:
       - "8001:8001"
-    depends_on:
-      redis:
-        condition: service_healthy
     networks:
       - langgraph-network
     healthcheck:
@@ -137,12 +90,25 @@ services:
       retries: 5
       start_period: 90s
 
+
+  # Agent Chat UI for LangGraph
+  chat-ui:
+    build:
+      context: ./chat-ui
+      dockerfile: Dockerfile
+    container_name: langgraph-chat-ui
+    env_file:
+      - .env
+    ports:
+      - "5173:3000"
+    networks:
+      - langgraph-network
+    depends_on:
+      - langgraph-server
+
+
 volumes:
-  postgres_data:
-    driver: local
   qdrant_data:
-    driver: local
-  redis_data:
     driver: local
   redisinsight_data:
     driver: local
@@ -151,5 +117,4 @@ volumes:
 
 networks:
   langgraph-network:
-    driver: bridge
-    name: langgraph-network
+    external: true
