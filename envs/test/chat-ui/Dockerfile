@@ -8,21 +8,21 @@ RUN apk add --no-cache \
     curl \
     netcat-openbsd
 
+# Install pnpm globally
+RUN npm install -g pnpm
+
 # Set working directory
 WORKDIR /app
 
-# Set PORT environment variable
-ENV PORT=5173
-
-# Install global packages
-RUN npm install -g create-react-app serve
+# Copy agent-chat-ui source from symlinked directory
+COPY agent-chat-ui /app/agent-chat-ui
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose port
-EXPOSE 5173
+# Expose Next.js default port
+EXPOSE 3000
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

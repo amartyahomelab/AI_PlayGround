@@ -1,24 +1,19 @@
 #!/bin/sh
-set -e
+set -ex
 
 echo "💬 Starting Chat UI for LangGraph..."
 
-# Check if chat app already exists
-if [ -d "/app/chat-app" ]; then
-    echo "🔄 Removing existing chat app to apply port configuration..."
-    rm -rf /app/chat-app
-fi
+ls -l /app
+ls -l /app/agent-chat-ui || true
 
-echo "🚀 Creating React chat application..."
-cd /app
-npx create-react-app chat-app --template typescript
-cd chat-app
+cd /app/agent-chat-ui
 
-# Install dependencies
-npm install axios
+# Install dependencies with pnpm only (fail if not present)
+pnpm install
 
-echo "✅ Chat application configured successfully!"
+# Show environment and Next.js version
+printenv
+npx next --version || true
 
-# Start the development server
-echo "🚀 Starting development server on port 5173..."
-PORT=5173 npm start
+# Start the Next.js dev server
+exec pnpm dev
