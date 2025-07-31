@@ -1,0 +1,4 @@
+.pnpm-store
+envs/config/secrets.yaml
+diagram-to-iac/config/secrets.yaml
+envs/test/.env

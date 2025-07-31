@@ -1,0 +1,9 @@
+[submodule "langfuse"]
+	path = langfuse
+	url = https://github.com/langfuse/langfuse.git
+[submodule "envs/test/chat-ui/agent-chat-ui"]
+	path = envs/test/chat-ui/agent-chat-ui
+	url = https://github.com/langchain-ai/agent-chat-ui.git
+[submodule "diagram-to-iac"]
+	path = diagram-to-iac
+	url = https://github.com/amartyamandal/diagram-to-iac.git

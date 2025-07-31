@@ -1,0 +1,120 @@
+services:
+
+  # Qdrant - Vector database
+  qdrant:
+    build:
+      context: ./qdrant
+      dockerfile: Dockerfile
+    container_name: langgraph-qdrant
+    env_file:
+      - .env
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ../../envs/setup/decode_env.sh:/opt/decode_env.sh:ro
+      - ../../envs/setup/api_utils.py:/opt/api_utils.py:ro
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/cluster"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL GUI Interface
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: langgraph-pgadmin
+    env_file:
+      - .env
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "8080:80"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+
+  # LangGraph Server - Main API + Studio UI (Official Combined Service)
+  langgraph-server:
+    build:
+      context: ./langgraph-server
+      dockerfile: Dockerfile
+    container_name: langgraph-server
+    env_file:
+      - .env
+    environment:
+      # Server configuration
+      HOST: 0.0.0.0
+      PORT: 2024
+    volumes:
+      - ./langgraph-server/graphs:/app/graphs
+      - ../../envs/setup/decode_env.sh:/opt/decode_env.sh:ro
+      - ../../envs/setup/api_utils.py:/opt/api_utils.py:ro
+    ports:
+      - "2024:2024"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2024/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # RedisInsight - Redis GUI Interface
+  redisinsight:
+    image: redislabs/redisinsight:1.14.0
+    container_name: langgraph-redisinsight
+    volumes:
+      - redisinsight_data:/db
+    ports:
+      - "8001:8001"
+    networks:
+      - langgraph-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001"] 
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+
+  # Agent Chat UI for LangGraph
+  chat-ui:
+    build:
+      context: ./chat-ui
+      dockerfile: Dockerfile
+    container_name: langgraph-chat-ui
+    env_file:
+      - .env
+    ports:
+      - "5173:3000"
+    networks:
+      - langgraph-network
+    depends_on:
+      - langgraph-server
+
+
+volumes:
+  qdrant_data:
+    driver: local
+  redisinsight_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  langgraph-network:
+    external: true
