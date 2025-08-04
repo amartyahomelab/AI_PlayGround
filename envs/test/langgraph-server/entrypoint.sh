@@ -6,39 +6,6 @@ echo "⚡ Starting LangGraph Server with Studio UI..."
 
 # Decode base64 environment variables first
 echo "🔓 Decoding base64 environment variables..."
-if [ -f "/opt/decode_env.sh" ]; then
-    # Use the shell script to decode and generate export statements
-    /opt/decode_env.sh export
-    
-    # Source the generated environment script to make variables available to shell
-    if [ -f "/tmp/decoded_env.sh" ]; then
-        source /tmp/decoded_env.sh
-    else
-        echo "❌ Failed to generate decoded environment variables"
-        exit 1
-    fi
-else
-    echo "⚠️ Warning: decode_env.sh not found, skipping base64 decoding"
-fi
-
-# Validate API connections immediately after decoding
-echo "🔍 Validating API connections..."
-if [ -f "/opt/api_utils.py" ]; then
-    export PYTHONPATH="/opt:$PYTHONPATH"
-    python3 -c "
-import sys
-sys.path.insert(0, '/opt')
-try:
-    from api_utils import test_all_apis
-    test_all_apis()
-    print('✅ API validation completed')
-except Exception as e:
-    print(f'⚠️ API validation failed: {e}')
-    print('🚀 Continuing with server startup anyway...')
-"
-else
-    echo "⚠️ Warning: api_utils.py not found, skipping API validation"
-fi
 
 # Configuration
 export HOST=${HOST:-0.0.0.0}

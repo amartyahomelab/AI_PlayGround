@@ -20,88 +20,51 @@ cd /home/user/app
 # 1) Load secrets and export them to current shell environment
 echo "🔐 Loading secrets..."
 
-# Check if we have the secret management script
-if [ -f "/run/secrets.yaml" ] && [ -f "/opt/sec_utils.py" ]; then
-    # Create a temporary file to capture environment variables from Python
-    TEMP_ENV_FILE=$(mktemp)
-    
-    # Load secrets and export them using sec_utils.py
-    echo "📁 Using mounted secret management system..."
-    cd /opt
-    python3 sec_utils.py "$TEMP_ENV_FILE"
+# Container uses .env file during runtime - secrets are already loaded
+
+# 2) Test API connections using api_utils.py
+echo "🧪 Testing API connections..."
+
+# Check if api_utils.py exists and test APIs
+if [ -f "/home/user/app/envs/setup/api_utils.py" ]; then
+    echo "📡 Running comprehensive API validation..."
     cd /home/user/app
-    
-    # Source the environment variables into current shell
-    if [ -f "$TEMP_ENV_FILE" ]; then
-        source "$TEMP_ENV_FILE"
-        rm "$TEMP_ENV_FILE"
-        echo "✅ Environment variables exported to shell"
+    python3 -c "
+import sys
+sys.path.append('envs/setup')
+from api_utils import test_all_apis
+test_all_apis()
+"
+else
+    echo "⚠️  API utils not found - skipping API validation"
+    echo "💡 Ensure envs/setup/api_utils.py exists for API testing"
+fi
+
+# 3) Check service health (optional - can be skipped with SKIP_HEALTH_CHECK=true)
+if [ "${SKIP_HEALTH_CHECK:-false}" = "true" ]; then
+    echo "🏥 Skipping service health checks (SKIP_HEALTH_CHECK=true)"
+else
+    echo "🏥 Checking service health..."
+
+    if [ -f "/home/user/app/envs/test/agent-dev/service_health_check.sh" ]; then
+        echo "🔍 Running service health checks..."
+        /home/user/app/envs/test/agent-dev/service_health_check.sh check --quiet --timeout 3
+        
+        # Check return code and provide feedback
+        service_check_result=$?
+        if [ $service_check_result -eq 0 ]; then
+            echo "✅ All services are healthy - ready for development!"
+        elif [ $service_check_result -eq 1 ]; then
+            echo "⚠️  Some services are not responding - they may still be starting up"
+            echo "💡 Run: ./envs/test/agent-dev/service_health_check.sh status"
+        else
+            echo "🚨 Service health check failed - check if other services are running"
+            echo "💡 Run: docker-compose -f envs/test/docker-compose.yml logs"
+        fi
     else
-        echo "⚠️  No environment variables file created"
+        echo "⚠️  Service health check script not found"
+        echo "💡 Ensure envs/test/agent-dev/service_health_check.sh exists"
     fi
-else
-    echo "⚠️  Secret management files not found - running without API keys"
-    echo "💡 Mount secrets.yaml to /run/secrets.yaml for full functionality"
-fi
-
-# 2) Test connections to LangGraph services if available
-echo "🔗 Testing service connectivity..."
-
-# Test PostgreSQL connection
-if command -v pg_isready >/dev/null 2>&1; then
-    echo "  → PostgreSQL: Testing connection to postgres:5432..."
-    if timeout 5 pg_isready -h postgres -p 5432 >/dev/null 2>&1; then
-        echo "  ✅ PostgreSQL: Connected"
-    else
-        echo "  ⚠️ PostgreSQL: Not available (postgres:5432)"
-    fi
-else
-    echo "  → PostgreSQL: Client not installed, testing with ping..."
-    if timeout 3 ping -c 1 postgres >/dev/null 2>&1; then
-        echo "  ✅ PostgreSQL host: Reachable"
-    else
-        echo "  ⚠️ PostgreSQL host: Not reachable"
-    fi
-fi
-
-# Test Qdrant connection
-echo "  → Qdrant: Testing connection to qdrant:6333..."
-if timeout 5 curl -sf http://qdrant:6333/health >/dev/null 2>&1; then
-    echo "  ✅ Qdrant: Connected"
-else
-    echo "  ⚠️ Qdrant: Not available (qdrant:6333)"
-fi
-
-# Test LangGraph Server connection
-echo "  → LangGraph Server: Testing connection to langgraph-server:2024..."
-if timeout 5 curl -sf http://langgraph-server:2024/health >/dev/null 2>&1; then
-    echo "  ✅ LangGraph Server: Connected"
-else
-    echo "  ⚠️ LangGraph Server: Not available (langgraph-server:2024)"
-fi
-
-# Test LangSmith connection
-echo "  → LangSmith: Testing connection to langsmith:8000..."
-if timeout 5 curl -sf http://langsmith:8000/health >/dev/null 2>&1; then
-    echo "  ✅ LangSmith: Connected"
-else
-    echo "  ⚠️ LangSmith: Not available (langsmith:8000)"
-fi
-
-# 3) Test API connections if environment variables are available
-if [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]; then
-    echo "🧪 Testing AI API connections..."
-    
-    # Check if test_apis.py exists and run it
-    if [ -f "/opt/test_apis.py" ]; then
-        cd /opt
-        python3 test_apis.py
-        cd /home/user/app
-    else
-        echo "  💡 API test script not available - run manually if needed"
-    fi
-else
-    echo "🤖 No AI API keys configured - LangGraph will use default models"
 fi
 
 # 4) Display environment information
@@ -114,18 +77,28 @@ echo ""
 
 # 5) Display helpful information
 echo "📚 Quick Commands:"
-echo "   langgraph --help           # View LangGraph CLI help"
-echo "   langgraph new my-project   # Create new LangGraph project"  
-echo "   langgraph dev              # Start development server"
-echo "   curl http://langgraph-server:2024/health  # Test LangGraph API"
-echo "   curl http://langsmith:8000/health         # Test LangSmith API"
-echo "   curl http://qdrant:6333/health            # Test Qdrant API"
+echo "   langgraph --help                                      # View LangGraph CLI help"
+echo "   langgraph new my-project                              # Create new LangGraph project"  
+echo "   langgraph dev                                         # Start development server"
+echo "   ./envs/test/agent-dev/service_health_check.sh status  # Check service status"
+echo "   ./envs/test/agent-dev/integration_test.sh             # Run integration tests"
 echo ""
 
-echo "🌐 Service URLs (from host):"
-echo "   LangGraph Studio: http://localhost:2024"
-echo "   LangSmith UI:     http://localhost:8000"
+echo "🔧 Internal Service URLs (from container):"
+echo "   curl http://langgraph-server:2024/docs    # LangGraph API docs"
+echo "   curl http://qdrant:6333/cluster           # Qdrant vector DB"
+echo "   curl http://langfuse-web:3000             # Langfuse web interface"
+echo "   curl http://clickhouse:8123/ping          # ClickHouse database"
+echo ""
+
+echo "🌐 External Service URLs (from host):"
+echo "   LangGraph Server: http://localhost:2024"
 echo "   Chat UI:          http://localhost:5173"
+echo "   Qdrant:           http://localhost:6333"
+echo "   pgAdmin:          http://localhost:8080"
+echo "   RedisInsight:     http://localhost:8001"
+echo "   Langfuse Web:     http://localhost:3000"
+echo "   MinIO Console:    http://localhost:9191"
 echo ""
 
 echo "└─ Development environment initialized; dropping into shell ───────"

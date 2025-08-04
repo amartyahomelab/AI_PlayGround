@@ -88,19 +88,32 @@ def _decode_b64(enc: str) -> str:
     if not enc:
         return ""
     
-    # Fix missing padding - add only the minimum required
-    padding_needed = 4 - (len(enc) % 4)
-    if padding_needed != 4:  # 4 means no padding needed
-        enc += "=" * padding_needed
-    
+    # First try to decode as-is
     try:
         decoded = base64.b64decode(enc).decode("utf-8").strip()
         # Strip any base64 padding artifacts that might cause token corruption
         decoded = decoded.rstrip('=')
         return decoded
     except (binascii.Error, UnicodeDecodeError):
-        # If it isn't valid Base64, return the raw string
-        return enc
+        pass
+    
+    # If that fails, try adding padding
+    # Remove any existing padding first, then add the correct amount
+    enc_no_padding = enc.rstrip('=')
+    padding_needed = 4 - (len(enc_no_padding) % 4)
+    if padding_needed != 4:  # 4 means no padding needed
+        enc_with_padding = enc_no_padding + "=" * padding_needed
+        
+        try:
+            decoded = base64.b64decode(enc_with_padding).decode("utf-8").strip()
+            # Strip any base64 padding artifacts that might cause token corruption
+            decoded = decoded.rstrip('=')
+            return decoded
+        except (binascii.Error, UnicodeDecodeError):
+            pass
+    
+    # If both attempts fail, return the raw string
+    return enc
 
 
 def _is_dev_environment() -> bool:
@@ -128,6 +141,9 @@ def _get_env_secrets() -> Dict[str, Optional[str]]:
                     break
         
         if raw_value:
+            # Remove quotes if present (from .env file format)
+            raw_value = raw_value.strip('"\'')
+            
             # Check if value is already decoded, use as-is; otherwise decode it
             if (secret_key == "TF_API_KEY" and ".atlasv1." in raw_value) or \
                (secret_key == "GITHUB_TOKEN" and raw_value.startswith("ghp_")) or \
@@ -137,6 +153,7 @@ def _get_env_secrets() -> Dict[str, Optional[str]]:
                (secret_key in ["DOCKERHUB_USERNAME"] and not "=" in raw_value):
                 env_secrets[secret_key] = raw_value
             else:
+                # Decode base64 encoded values
                 env_secrets[secret_key] = _decode_b64(raw_value)
         else:
             env_secrets[secret_key] = None
@@ -182,7 +199,7 @@ def _validate_and_set_secrets(secrets: Dict[str, str], source: str = "environmen
                 # File values need to be decoded
                 decoded_value = _decode_b64(secret_value)
             else:
-                # Environment values are already decoded
+                # Environment values are already decoded by _get_env_secrets()
                 decoded_value = secret_value
                 
             if decoded_value:

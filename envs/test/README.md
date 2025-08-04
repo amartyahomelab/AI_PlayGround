@@ -193,19 +193,119 @@ For advanced analytics, tracing, and debugging, use the Langfuse UI and connect 
 
 ## 🎯 Service Endpoints & Health
 
-| Service         | Endpoint / Port                | Status   | Description                        |
-|-----------------|-------------------------------|----------|------------------------------------|
-| LangGraph Studio| [http://localhost:2024](http://localhost:2024)         | ✅ HEALTHY| Visual agent builder               |
-| LangGraph API   | [http://localhost:2024/api](http://localhost:2024/api)     | ✅ HEALTHY| REST API for agent interactions    |
-| Chat UI         | [http://localhost:5173](http://localhost:5173)         | ✅ HEALTHY| React-based chat interface         |
-| Qdrant Dashboard| [http://localhost:6333/dashboard](http://localhost:6333/dashboard)| ✅ HEALTHY| Vector DB management               |
-| PostgreSQL      | localhost:5432                | ✅ HEALTHY| State persistence                  |
-| LangSmith UI    | [http://localhost:8000](http://localhost:8000)         | ✅ HEALTHY| Observability/tracing              |
+| Service         | Endpoint / Port                | Status   | Description                        | Health Check |
+|-----------------|-------------------------------|----------|------------------------------------|--------------| 
+| LangGraph Studio| [http://localhost:2024](http://localhost:2024)         | ✅ HEALTHY| Visual agent builder               | `service_health_check.sh` |
+| LangGraph API   | [http://localhost:2024/api](http://localhost:2024/api)     | ✅ HEALTHY| REST API for agent interactions    | `service_health_check.sh` |
+| Chat UI         | [http://localhost:5173](http://localhost:5173)         | ✅ HEALTHY| React-based chat interface         | `service_health_check.sh` |
+| Qdrant Dashboard| [http://localhost:6333/dashboard](http://localhost:6333/dashboard)| ✅ HEALTHY| Vector DB management               | `service_health_check.sh` |
+| PostgreSQL      | localhost:5432                | ✅ HEALTHY| State persistence                  | `service_health_check.sh` |
+| LangSmith UI    | [http://localhost:8000](http://localhost:8000)         | ✅ HEALTHY| Observability/tracing              | `service_health_check.sh` |
+| **Langfuse Stack** | | | **Observability Services** | |
+| Langfuse Web    | [http://localhost:3000](http://localhost:3000)         | ✅ HEALTHY| Langfuse UI/API                    | `--compose-file langfuse/` |
+| Langfuse Worker | localhost:3030                | ✅ HEALTHY| Background processing              | `--compose-file langfuse/` |
+| ClickHouse      | [http://localhost:8123](http://localhost:8123)         | ✅ HEALTHY| Analytics database                 | `--compose-file langfuse/` |
+| MinIO           | [http://localhost:9000](http://localhost:9000)         | ✅ HEALTHY| S3-compatible storage             | `--compose-file langfuse/` |
+
+**Testing Commands:**
+
+```bash
+# Test all main stack services
+./envs/test/agent-dev/service_health_check.sh status --mode host
+
+# Test langfuse stack services  
+./envs/test/agent-dev/service_health_check.sh status --compose-file langfuse/docker-compose.yml --mode host
+
+# Run comprehensive integration tests
+./envs/test/agent-dev/integration_test.sh --mode host
+```
 
 ---
 
 ## 🔧 Management Commands
 
+### Service Health Monitoring & Testing
+
+The stack includes powerful testing and monitoring tools located in `agent-dev/`:
+
+#### Service Health Check Script
+
+```bash
+# Quick health check (from container context)
+./envs/test/agent-dev/service_health_check.sh check
+
+# Check from host machine
+./envs/test/agent-dev/service_health_check.sh check --mode host
+
+# Test langfuse stack specifically
+./envs/test/agent-dev/service_health_check.sh status --compose-file langfuse/docker-compose.yml --mode host
+
+# Wait for all services to be ready (useful in CI/CD)
+./envs/test/agent-dev/service_health_check.sh wait --timeout 60
+```
+
+#### Integration Test Suite
+
+```bash
+# Run full integration tests (main stack)
+./envs/test/agent-dev/integration_test.sh
+
+# Test from host machine
+./envs/test/agent-dev/integration_test.sh --mode host
+
+# Test langfuse stack
+./envs/test/agent-dev/integration_test.sh --compose-file langfuse/docker-compose.yml --mode host
+```
+
+**Key Features:**
+
+- **Dual Mode Support**: Run tests from host (`--mode host`) or container (`--mode guest`)
+- **Multi-Stack Testing**: Support for both main LangGraph stack and Langfuse stack
+- **Network-Aware**: Automatically uses correct endpoints (localhost vs service names)
+- **Flexible**: Optional health checks, configurable timeouts, quiet mode for scripts
+
+**Available Options:**
+
+- `--mode host|guest` - Execution context (default: guest)
+- `--compose-file PATH` - Path to docker-compose.yml (default: envs/test/docker-compose.yml)
+- `--timeout N` - Timeout in seconds for health checks
+- `--quiet` - Suppress output for scripting
+
+### Integration with Development Workflow
+
+The testing scripts integrate seamlessly with the existing development workflow:
+
+```bash
+# Start agent-dev container with network access
+cd envs/setup
+./build_local.sh
+
+# Inside the container, health checks are automatically skipped for faster startup
+# You can manually run health checks when needed:
+./envs/test/agent-dev/service_health_check.sh check
+
+# Or test from the host machine:
+./envs/test/agent-dev/service_health_check.sh check --mode host
+```
+
+**Troubleshooting:**
+
+- If services fail health checks, verify they're running: `docker compose ps`
+- Check service logs: `docker compose logs [service-name]`
+- For network issues, ensure containers are on the `langgraph-network`
+- Use `--mode host` when testing from outside Docker containers
+- Health checks are automatically skipped in the agent-dev container entrypoint for faster startup
+
+**Service Discovery:**
+
+The testing scripts automatically detect the correct endpoints based on execution context:
+
+- **Host Mode** (`--mode host`): Uses `localhost` with external ports (e.g., `localhost:8080` for pgadmin)
+- **Guest Mode** (`--mode guest`): Uses service names with internal ports (e.g., `pgadmin:80`)
+
+This ensures seamless testing whether you're running from your host machine or inside a Docker container.
+
+---
 
 ## 🚀 Quick Start
 

@@ -130,9 +130,6 @@ RUN mkdir -p /workspace && \
     chown -R user:user /workspace && \
     chmod -R 775 /workspace
 
-# ─── 9) Copy entrypoint script ───────────────────────────────────────
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # ─── 10) Final setup ──────────────────────────────────────────────────
 USER user

@@ -4,47 +4,9 @@ set -e
 
 echo "🔍 Starting LangSmith self-hosted instance..."
 
-# Load secrets if available
-if [ -f "/run/secrets.yaml" ] && [ -f "/opt/sec_utils.py" ]; then
-    echo "📁 Loading secrets from secret management system..."
-    
-    # Use Python to load and decode secrets
-    python3 -c "
-import sys
-import os
-sys.path.append('/opt')
-from sec_utils import load_secrets
+# Decode base64 environment variables first
+echo "🔓 Decoding base64 environment variables..."
 
-try:
-    secrets = load_secrets('/run/secrets.yaml')
-    
-    # Set environment variables for common API keys
-    api_keys = [
-        'OPENAI_API_KEY',
-        'ANTHROPIC_API_KEY', 
-        'GOOGLE_API_KEY',
-        'GITHUB_TOKEN',
-        'LANGSMITH_API_KEY',
-        'LANGSMITH_LICENSE_KEY'
-    ]
-    
-    for key in api_keys:
-        if key in secrets:
-            print(f'export {key}=\"{secrets[key]}\"')
-    
-    print('echo \"✅ Successfully loaded secrets for LangSmith\"')
-            
-except Exception as e:
-    print(f'echo \"⚠ Warning: Could not load secrets: {e}\"')
-    print('echo \"📝 Using environment variables or default configuration\"')
-" > /tmp/secrets_env.sh
-
-    # Source the generated environment file
-    source /tmp/secrets_env.sh
-    rm -f /tmp/secrets_env.sh
-else
-    echo "📝 Secret management not available, using environment variables"
-fi
 
 # Set default configuration
 export LANGSMITH_PORT=${LANGSMITH_PORT:-8000}
