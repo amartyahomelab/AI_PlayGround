@@ -38,11 +38,11 @@ docker compose up -d
 In a new terminal:
 
 ```bash
-cd envs/test
-docker compose exec agent-dev bash
+cd envs/setup
+./build_local.sh
 ```
 
-This drops you into a shell with all environment variables and network access to both LangGraph and Langfuse services. The entrypoint script (`agent-dev/entrypoint.sh`) will test connections and load secrets automatically.
+This starts and drops you into a shell with all environment variables and network access to both LangGraph and Langfuse services. The entrypoint script (`agent-dev/entrypoint.sh`) will test connections and load secrets automatically.
 
 ---
 
@@ -487,7 +487,8 @@ envs/test/
 
 4. **Development shell:**
    ```bash
-   docker-compose exec agent-dev bash
+   cd envs/setup
+   ./build_local.sh
    ```
 
 ## 🔧 Configuration
@@ -508,7 +509,7 @@ envs/test/
 ## 📝 Development Workflow
 
 1. **Start services:** `docker-compose up -d`
-2. **Enter dev container:** `docker-compose exec agent-dev bash`
+2. **Enter dev container:** `cd envs/setup && ./build_local.sh`
 3. **Create new graph:** `langgraph new my-agent`
 4. **Develop with hot-reload:** `langgraph dev`
 5. **Test via Chat UI:** Open http://localhost:5173
